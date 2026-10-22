@@ -1,0 +1,23 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "acag-repro"
+version = "0.1.0"
+description = "Reproducible ACA, GA, and ACA-GA hybrid for TSPLIB EUC_2D TSP"
+requires-python = ">=3.10"
+license = {text = "MIT"}
+authors = [{name = "ZJY-HSBL"}]
+
+[project.optional-dependencies]
+test = ["pytest>=7"]
+
+[project.scripts]
+acag = "acag:main"
+
+[tool.setuptools]
+py-modules = ["acag"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

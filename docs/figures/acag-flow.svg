@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 250" width="900" height="250" role="img" aria-label="ACAG workflow from TSPLIB to ACA search, archive, switch and GA search">
+<rect width="900" height="250" rx="16" fill="#f8fafc"/>
+<defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0 0 10 5 0 10Z" fill="#617d95"/></marker></defs>
+<g font-family="Arial,sans-serif" font-size="15" text-anchor="middle">
+<rect x="26" y="79" width="160" height="70" rx="12" fill="#e4edf6" stroke="#a3b9ce"/><text x="106" y="106" fill="#29445d" font-weight="bold">TSPLIB TSP</text><text x="106" y="128" fill="#506b86" font-size="12">EUC_2D · budget</text>
+<rect x="237" y="79" width="176" height="70" rx="12" fill="#daedf0" stroke="#8bb5c0"/><text x="325" y="105" fill="#146479" font-weight="bold">ACA</text><text x="325" y="127" fill="#426875" font-size="12">nearest-w + pheromone</text>
+<rect x="460" y="79" width="165" height="70" rx="12" fill="#eae6f8" stroke="#bdb0df"/><text x="542" y="104" fill="#513a83" font-weight="bold">Switch check</text><text x="542" y="126" fill="#63538a" font-size="12">stalled ant_max rounds?</text>
+<rect x="670" y="79" width="204" height="70" rx="12" fill="#f6e4d8" stroke="#ddb597"/><text x="772" y="104" fill="#95491c" font-weight="bold">GA</text><text x="772" y="126" fill="#99653e" font-size="12">archive + OX + swaps</text>
+</g>
+<g stroke="#617d95" stroke-width="2" fill="none" marker-end="url(#arrow)"><path d="M186 114H235"/><path d="M413 114H458"/><path d="M625 114H668"/><path d="M542 79V40H325V77"/><path d="M772 150V184H542V151"/></g>
+<g font-family="Arial,sans-serif" font-size="12" fill="#647b91"><text x="418" y="33">not yet</text><text x="632" y="103">yes</text><text x="660" y="206">budget remains</text><text x="26" y="220">All methods: identical counted full-tour evaluations · 0-based internal tours · published TSPLIB integer distances</text></g>
+</svg>
