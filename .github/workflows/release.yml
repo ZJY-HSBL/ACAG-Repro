@@ -33,15 +33,22 @@ jobs:
           test "$(find docs/figures/v0.2.0 -name '*.svg' | wc -l)" -eq 6
           test "$(wc -l < results/ablation_v0.2.0.csv)" -eq 421
           test "$(wc -l < results/convergence_v0.2.0.csv)" -gt 700
-      - name: Publish v0.2.0 only after successful checks
+      - name: Reproduce v0.3.0 pilot (264 runs and 10 SVGs)
+        run: |
+          python tools/ablation_v03.py --seed-start 200 --seeds 12 --budget 1000 --population 20 --two-opt-trials 8
+          git diff --exit-code -- results/ablation_v0.3.0.csv results/convergence_v0.3.0.csv results/summary_v0.3.0.json docs/figures/v0.3.0/
+          test "$(find docs/figures/v0.3.0 -name '*.svg' | wc -l)" -eq 10
+          test "$(wc -l < results/ablation_v0.3.0.csv)" -eq 265
+          test "$(wc -l < results/convergence_v0.3.0.csv)" -eq 1123
+      - name: Publish v0.3.0 only after successful checks
         if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          if gh release view v0.2.0 >/dev/null 2>&1; then
-            echo "v0.2.0 already published; leaving release untouched."
+          if gh release view v0.3.0 >/dev/null 2>&1; then
+            echo "v0.3.0 already published; leaving release untouched."
             exit 0
           fi
-          gh release create v0.2.0 --target "$GITHUB_SHA" \
-            --title 'v0.2.0 — Counted-budget ACAG switch ablations' \
-            --notes-file docs/RELEASE_NOTES_v0.2.0.md
+          gh release create v0.3.0 --target "$GITHUB_SHA" \
+            --title 'v0.3.0 — 2-opt and elite-feedback ablation' \
+            --notes-file docs/RELEASE_NOTES_v0.3.0.md

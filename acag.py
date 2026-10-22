@@ -154,7 +154,8 @@ class Solver:
                  q: float = 1000., q1: float = 1., q2: float = 5.,
                  pc: float = .8, pm: float = .3, ant_max: int = 8,
                  min_ratio: float = .01, switch_policy: str = "stagnation",
-                 transfer_policy: str = "elite"):
+                 transfer_policy: str = "elite", mutation_policy: str = "adjacent",
+                 two_opt_trials: int = 8, elite_polish_rate: float = 0.):
         if budget < population or population < 2 or tsp.n < 3:
             raise ValueError("Need budget >= population >= 2 and >=3 cities")
         if not (0 <= q0 <= 1 and 0 < rho < 1 and 0 <= pc <= 1
@@ -176,6 +177,14 @@ class Solver:
             raise ValueError("Unsupported transfer policy")
         self.ant_max, self.min_ratio = ant_max, min_ratio
         self.switch_policy, self.transfer_policy = switch_policy, transfer_policy
+        if mutation_policy not in ("adjacent", "2opt"):
+            raise ValueError("Unsupported mutation operator")
+        if not isinstance(two_opt_trials, int) or two_opt_trials < 1:
+            raise ValueError("two_opt_trials must be a positive integer")
+        if not 0 <= elite_polish_rate <= 1:
+            raise ValueError("elite_polish_rate must be between 0 and 1")
+        self.mutation_policy, self.two_opt_trials = mutation_policy, two_opt_trials
+        self.elite_polish_rate = elite_polish_rate
         self.local_search_evaluations = 0
         self.best = math.inf
         self.tour: tuple[int, ...] = ()
@@ -227,13 +236,41 @@ class Solver:
             self.pheromone[i][j] = self.pheromone[j][i] = new
         return tuple(tour)
 
-    def _ants_generation(self, count: int) -> bool:
+    def _two_opt_search(self, start: tuple[int, ...], score: int,
+                        trials: int | None = None) -> tuple[tuple[int, ...], int]:
+        """Budget-charged stochastic 2-opt; each candidate is a complete tour.
+
+        The complete reversed permutation is evaluated through evaluate(), and
+        not by a free four-edge delta oracle. Failed proposals are charged too.
+        """
+        best_tour, best_score = start, score
+        for _ in range(self.two_opt_trials if trials is None else trials):
+            if self.evals >= self.budget:
+                break
+            a, b = sorted(self.rng.sample(range(self.tsp.n), 2))
+            if b - a < 2 or b - a == self.tsp.n - 1:
+                # Still evaluate a legitimate 2-opt proposal rather than
+                # consuming RNG draws without counting a function call.
+                a, b = 0, self.tsp.n - 2
+            candidate = (best_tour[:a] + tuple(reversed(best_tour[a:b+1]))
+                         + best_tour[b+1:])
+            candidate_score = self.evaluate(candidate)
+            self.local_search_evaluations += 1
+            if candidate_score < best_score:
+                best_tour, best_score = candidate, candidate_score
+        return best_tour, best_score
+
+    def _ants_generation(self, count: int, improve_ants: bool = False) -> bool:
         old_best = self.best
         best_round: tuple[int, ...] | None = None
         round_value = math.inf
         for _ in range(count):
+            if self.evals >= self.budget:
+                break
             path = self._ant()
             value = self.evaluate(path)
+            if improve_ants:
+                path, value = self._two_opt_search(path, value)
             key = canonical(path)
             self.archive[key] = min(value, self.archive.get(key, math.inf))
             if value < round_value:
@@ -272,6 +309,8 @@ class Solver:
         score = self.evaluate(child)
         if self.rng.random() >= self.pm or self.evals >= self.budget:
             return child, score
+        if self.mutation_policy == "2opt":
+            return self._two_opt_search(child, score)
         a, b = sorted(self.rng.sample(range(self.tsp.n), 2))
         trial = list(child)
         for i in range(a, b):
@@ -287,8 +326,8 @@ class Solver:
         return tuple(trial), score
 
     def run(self, algorithm: str = "acag") -> Result:
-        if algorithm not in ("aca", "ga", "acag"):
-            raise ValueError("Choose aca, ga, or acag")
+        if algorithm not in ("aca", "ga", "acag", "aca_2opt", "aca_polish"):
+            raise ValueError("Choose aca, ga, acag, aca_2opt or aca_polish")
         switch: int | None = None
         if algorithm == "ga":
             population = [tuple(self.rng.sample(range(self.tsp.n), self.tsp.n))
@@ -299,16 +338,20 @@ class Solver:
             thresholds = {"fixed25": .25, "fixed50": .50, "fixed75": .75}
             while self.evals < self.budget:
                 count = min(self.population, self.budget - self.evals)
-                improved = self._ants_generation(count)
+                improved = self._ants_generation(count, improve_ants=algorithm == "aca_2opt")
                 stalled = 0 if improved else stalled + 1
                 policy = self.switch_policy
                 trigger = (stalled >= self.ant_max if policy == "stagnation"
                            else self.evals >= math.ceil(self.budget * thresholds[policy])
                            if policy in thresholds else False)
-                if algorithm == "acag" and trigger and self.evals < self.budget:
+                if algorithm in ("acag", "aca_polish") and trigger and self.evals < self.budget:
                     switch = self.evals
                     break
-            if algorithm == "aca" or switch is None:
+            if algorithm in ("aca", "aca_2opt") or switch is None:
+                return self._result(algorithm, switch)
+            if algorithm == "aca_polish":
+                while self.evals < self.budget:
+                    self._two_opt_search(self.tour, int(self.best), trials=1)
                 return self._result(algorithm, switch)
             if self.transfer_policy == "elite":
                 population, scores = self._population_from_archive()
@@ -317,6 +360,17 @@ class Solver:
                               for _ in range(min(self.population, self.budget-self.evals))]
                 scores = [self.evaluate(p) for p in population]
         while self.evals < self.budget:
+            if (algorithm == "acag" and self.elite_polish_rate > 0 and
+                    self.rng.random() < self.elite_polish_rate):
+                old_best = self.best
+                improved_tour, improved_value = self._two_opt_search(
+                    self.tour, int(self.best), trials=1)
+                if improved_value < old_best:
+                    # Bidirectional transfer: evaluated GA-stage elite 2-opt
+                    # refinement flows back into the evolving GA population.
+                    worst_idx = max(range(len(scores)), key=lambda i: scores[i])
+                    population[worst_idx], scores[worst_idx] = improved_tour, improved_value
+                continue
             child, score = self._ga_step(population, scores)
             # Elitist survivor selection; stable ties plus canonical uniqueness.
             combined = list(zip(population + [child], scores + [score]))
@@ -349,7 +403,7 @@ class Solver:
 def main() -> None:
     p = argparse.ArgumentParser(description="Paper-inspired ACA/GA/ACAG TSP solver")
     p.add_argument("instance", type=Path, help="TSPLIB EUC_2D .tsp file")
-    p.add_argument("--algorithm", choices=("aca", "ga", "acag"), default="acag")
+    p.add_argument("--algorithm", choices=("aca", "ga", "acag", "aca_2opt", "aca_polish"), default="acag")
     p.add_argument("--seed", type=int, default=42)
     p.add_argument("--budget", type=int, default=600)
     p.add_argument("--population", type=int, default=20)
@@ -357,13 +411,19 @@ def main() -> None:
     p.add_argument("--switch-policy", choices=("stagnation", "fixed25",
                    "fixed50", "fixed75", "never"), default="stagnation")
     p.add_argument("--transfer-policy", choices=("elite", "random"), default="elite")
+    p.add_argument("--mutation-policy", choices=("adjacent", "2opt"), default="adjacent")
+    p.add_argument("--two-opt-trials", type=int, default=8)
+    p.add_argument("--elite-polish-rate", type=float, default=0.)
     p.add_argument("--out", type=Path, help="Optional JSON output file")
     args = p.parse_args()
     tsp = TSP.from_tsplib(args.instance)
     result = Solver(tsp, seed=args.seed, budget=args.budget,
                     population=args.population, ant_max=args.ant_max,
                     switch_policy=args.switch_policy,
-                    transfer_policy=args.transfer_policy).run(args.algorithm)
+                    transfer_policy=args.transfer_policy,
+                    mutation_policy=args.mutation_policy,
+                    two_opt_trials=args.two_opt_trials,
+                    elite_polish_rate=args.elite_polish_rate).run(args.algorithm)
     data = json.dumps(dict(instance=tsp.name, **result.as_dict()), indent=2)
     if args.out:
         args.out.parent.mkdir(parents=True, exist_ok=True)

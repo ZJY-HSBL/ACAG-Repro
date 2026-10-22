@@ -11,7 +11,7 @@
 
 A transparent, budget-controlled **research reproduction in progress** of the ACAG hybrid in Sheng, Xu & Xu (2022), *Simulation of Traveling Salesman Path Planning Based on Ant Colony Algorithm and Genetic Algorithm*, *Computer Simulation* 39(12), 398–402. This is a **paper-inspired implementation with documented deviations**, not a claim of exact numerical replication.
 
-**v0.2.0 research verdict:** *The tested ACAG strategies did not outperform ACA.* The fixed-75%-switch variant reduces the harm relative to early switching but still trails the ACA baseline. This negative result is documented rather than concealed. It describes the implementation and experimental protocol here; it does **not** refute the paper's original experiments.
+**v0.3.0 research verdict:** *2-opt is useful only when applied at an appropriate phase; a stronger GA mutation alone has not established an advantage over ACA.* In a 12-seed exploratory pilot, ACA at 75% budget followed by 2-opt produced a modest improvement on both tested datasets. The ACAG 75%-switch 2-opt variant was slightly better than ACA on `berlin52`, but its paired interval includes zero. These are **method-development results**, not statistically confirmed superiority or unseen-instance generalization. Earlier results and caveats remain below.
 
 ### Algorithm
 
@@ -23,6 +23,49 @@ A transparent, budget-controlled **research reproduction in progress** of the AC
 - **Ablations:** adaptive stagnation switch; switch after 25%, 50%, or 75% of budget; 50%-switch with **random** GA initial population; no-switch ACA and separate GA baselines.
 
 The objective is a **closed Euclidean TSP tour** with TSPLIB integer `EUC_2D` edge weights (`floor(Euclidean distance + 0.5)`), including the last-to-first return edge. Supported datasets are `eil51` and `berlin52`.
+
+### v0.3.0 — Does GA-stage 2-opt add value beyond ACA?
+
+**Experimental status: exploratory screening, not confirmatory validation.** `v0.3.0` adds a *charged*, stochastic **2-opt** (tour segment reversal) operator, an **ACA+2opt** baseline (local-search trials applied to each ant tour), a stronger **ACA75-polish** control (first 75% ACA, remaining budget pure 2-opt on the best tour), and hybrid variants with/without **elite feedback** (GA-stage incumbent refinements are transferred back into the GA population). Original OX/adjacent-swap remains available and unchanged by default. The two-opt mutation, elite feedback, and 75% polishing are **our extensions**, not described in the 2022 article.
+
+**Protocol:** `eil51` and `berlin52` × 12 new paired seeds `200–211` × 11 treatments = **264 independently executed optimization trials**. Every treatment receives **1,000 measured full-tour objective evaluations**, including rejected 2-opt proposals. The local 2-opt trial cap is eight proposals per mutation, and the elite-refinement probability is 0.5 where enabled. All results are archived per seed and validated against the final tour. The datasets have already been examined during prior development, therefore these are **not holdout benchmarks**.
+
+| Treatment (mean tour length ↓) | eil51 | berlin52 |
+|:--|--:|--:|
+| **ACA baseline** | 448.33 | 7,890.75 |
+| ACA+2opt (every ant tour) | 471.42 | 8,614.00 |
+| ACA75-polish (no GA) | **445.92** | 7,882.17 |
+| GA adjacent-swap | 1,166.83 | 20,850.17 |
+| GA 2-opt | 1,056.33 | 19,069.33 |
+| ACAG 50% adjacent-swap | 452.08 | 7,913.75 |
+| ACAG 50% 2-opt | 451.33 | 7,895.17 |
+| ACAG 75% 2-opt | 447.50 | **7,856.00** |
+| ACAG stagnation 2-opt | 457.75 | 7,955.50 |
+| ACAG 50% 2-opt + elite feedback | 450.25 | 7,872.00 |
+| ACAG 75% 2-opt + elite feedback | 448.33 | 7,873.42 |
+
+The best observed mean (within this exploratory candidate set) differs by instance: **ACA75-polish on eil51**, **ACAG75-2opt on berlin52**. Crucially, for `berlin52`, `ACAG75-2opt − ACA` averages **−34.75**, with paired 95% bootstrap **[−82.17, +0.42]**; the interval crosses zero. For `eil51`, `ACA75-polish − ACA` averages **−2.42**, with unadjusted bootstrap **[−5.00, −0.25]**, but a family-wise Holm-corrected paired randomization result does **not** establish significance across the tested comparisons. We neither cherry-pick a single benchmark winner nor claim the GA hybrid is validated.
+
+**Key causal insight:** Running 2-opt on *each newly created ant tour* reduces the number of ant-construction steps and performs worse than ACA. Spending the last 25% of budget polishing the *best ACA tour*, even without GA, is competitive. Consequently any purported hybrid improvement must beat **both** ACA and ACA75-polish under identical objective and wall-clock budgets, not just a weak baseline. Stronger mutation alone does not automatically repair the ACA→GA handoff.
+
+**Zoomed known-optimum gaps** (GA outliers excluded from the zoom; see summary SVGs for all treatments):
+
+![eil51 v0.3 zoom gap](docs/figures/v0.3.0/eil51-zoom-gap.svg)
+![berlin52 v0.3 zoom gap](docs/figures/v0.3.0/berlin52-zoom-gap.svg)
+
+**Paired treatment − ACA effects (negative favors treatment; exploratory bootstrap 95% intervals):**
+
+![eil51 v0.3 paired effects](docs/figures/v0.3.0/eil51-effects-vs-aca.svg)
+![berlin52 v0.3 paired effects](docs/figures/v0.3.0/berlin52-effects-vs-aca.svg)
+
+**Convergence indexed by fully charged objective calls:**
+
+![eil51 v0.3 convergence](docs/figures/v0.3.0/eil51-convergence.svg)
+![berlin52 v0.3 convergence](docs/figures/v0.3.0/berlin52-convergence.svg)
+
+[All ten v0.3 SVGs](docs/figures/v0.3.0/) · [264 raw trial records](results/ablation_v0.3.0.csv) · [per-evaluation trajectories](results/convergence_v0.3.0.csv) · [paired statistics and Holm corrections](results/summary_v0.3.0.json).
+
+Next: **freeze a candidate and validate it on genuinely unused TSPLIB instances**, report wall-clock and implementation-sensitive costs as well as evaluation budgets, increase seed count and control for multiple comparisons. Do not choose a 'successful' variant post hoc and report exploratory results as confirmatory. A 12-seed experiment is a development-screening stage only.
 
 ### Main scientific correction in v0.2.0
 
@@ -82,6 +125,9 @@ python -m pytest -q
 python acag.py data/eil51.tsp --algorithm acag --budget 1000 --switch-policy fixed75 --seed 100
 python acag.py data/berlin52.tsp --algorithm acag --budget 1000 --switch-policy fixed50 --transfer-policy random --seed 101
 python tools/ablation_v02.py --seed-start 100 --seeds 30 --budget 1000 --population 20
+python acag.py data/eil51.tsp --algorithm acag --mutation-policy 2opt --switch-policy fixed75 --budget 1000 --seed 200
+python acag.py data/berlin52.tsp --algorithm aca_polish --switch-policy fixed75 --budget 1000 --seed 200
+python tools/ablation_v03.py --seed-start 200 --seeds 12 --budget 1000 --population 20 --two-opt-trials 8
 ```
 
 `tools/ablation_v02.py` deterministically regenerates [per-run outcomes](results/ablation_v0.2.0.csv), [mean convergence checkpoints](results/convergence_v0.2.0.csv), [JSON statistics](results/summary_v0.2.0.json), and six [SVG figures](docs/figures/v0.2.0/). Bootstrap intervals use 8,000 resamples; paired sign-flip Monte Carlo p-values use 8,000 draws and Holm correction across the 12 exploratory comparisons. No plotted points are invented. In CI, these products are recomputed and checked for a clean diff.
@@ -93,7 +139,8 @@ python tools/ablation_v02.py --seed-start 100 --seeds 30 --budget 1000 --populat
 | Version | Status | Evidence |
 |:--|:--|:--|
 | [`v0.1.0`](https://github.com/ZJY-HSBL/ACAG-Repro/releases/tag/v0.1.0) | Archived pilot | 10 seeds, legacy per-offspring budget; not equivalent to v0.2 full-query budget |
-| `v0.2.0` | Accounted ablations | 30 new seeds, 420 runs, formal switch/transfer comparison, 25 passing tests, six new SVGs |
+| `v0.2.0` | Accounted ablations | 30 seeds, 420 runs, formal switch/transfer comparison, six SVGs |
+| `v0.3.0` | Exploratory operator study | 12 new seeds, 264 runs, 2-opt and elite-feedback ablations, ten SVGs, 40 passing tests |
 
 Source/reference datasets: [eil51 mirror](https://github.com/mastqe/tsplib/blob/master/eil51.tsp), [berlin52 mirror](https://github.com/pdrozdowski/TSPLib.Net/blob/master/TSPLIB95/tsp/berlin52.tsp). Authors and relevant dataset custodians retain their rights. MIT covers this repository's original code, not the underlying paper.
 
@@ -104,6 +151,45 @@ Source/reference datasets: [eil51 mirror](https://github.com/mastqe/tsplib/blob/
 ## 中文说明
 
 本仓库围绕圣文顺、徐爱萍、徐刘晶（2022）《基于蚁群算法与遗传算法的 TSP 路径规划仿真》中的 **ACAG 蚁群—遗传混合算法**进行可重复研究。实现遵循论文的核心思想，但不宣称已经严格复现全部参数和数值结果。
+
+### v0.3.0：2-opt 局部搜索及精英反馈消融实验
+
+本轮重点不是简单增加算子，而是回答：**ACAG 的改进究竟来自 GA，还是 ACA 产生优质路径后再做 2-opt 即可？** 为此我们增加了以下严格计费的对照：每只蚂蚁路径后直接 2-opt、ACA 执行 75% 预算后单独精修历史最优路径、GA 改用 2-opt，以及 ACAG 50%/75% 切换和精英路径反馈。全部属于本仓库的研究扩展，不应被误写成原论文已提出的机制。
+
+采用两个历史已使用过的实例、12 个新配对随机种子（200–211）、11 种配置，每次 **1,000 次完整路径目标函数评价**，共 **264 次优化试验**。每一条被拒绝的 2-opt 候选路径也计入预算；这些实例并非独立盲测数据，现阶段仅为探索性实验。
+
+| 方法 | eil51 平均路径长度 ↓ | berlin52 平均路径长度 ↓ |
+|:--|--:|--:|
+| 纯 ACA | 448.33 | 7,890.75 |
+| ACA + 每只蚂蚁的 2-opt | 471.42 | 8,614.00 |
+| **ACA 75% 后仅用 2-opt 精修** | **445.92** | 7,882.17 |
+| GA + 相邻交换 | 1,166.83 | 20,850.17 |
+| GA + 2-opt | 1,056.33 | 19,069.33 |
+| ACAG 50% + 相邻交换 | 452.08 | 7,913.75 |
+| ACAG 50% + 2-opt | 451.33 | 7,895.17 |
+| **ACAG 75% + 2-opt** | 447.50 | **7,856.00** |
+| ACAG 停滞切换 + 2-opt | 457.75 | 7,955.50 |
+| ACAG 50% + 2-opt + 精英反馈 | 450.25 | 7,872.00 |
+| ACAG 75% + 2-opt + 精英反馈 | 448.33 | 7,873.42 |
+
+重要结论：**在 eil51 上，纯 ACA 后期精修优于目前测试的 ACAG；在 berlin52 上，ACAG 75% 切换配合 2-opt 的探索性均值最好，但其相对于 ACA 的配对差值为 −34.75，95% Bootstrap 区间为 [−82.17, +0.42]，尚未排除无增益的可能。** 多重检验校正后不能宣称获得统计显著的混合算法优势。我们保留所有试验结果，而非挑选最好看的配置。
+
+**实验数据可视化（均由真实运行产生）：**
+
+![eil51 v0.3 近似最优差距](docs/figures/v0.3.0/eil51-zoom-gap.svg)
+![berlin52 v0.3 近似最优差距](docs/figures/v0.3.0/berlin52-zoom-gap.svg)
+![eil51 v0.3 配对差异](docs/figures/v0.3.0/eil51-effects-vs-aca.svg)
+![berlin52 v0.3 配对差异](docs/figures/v0.3.0/berlin52-effects-vs-aca.svg)
+![eil51 v0.3 收敛过程](docs/figures/v0.3.0/eil51-convergence.svg)
+![berlin52 v0.3 收敛过程](docs/figures/v0.3.0/berlin52-convergence.svg)
+
+[完整十张 SVG](docs/figures/v0.3.0/) · [逐随机种子结果](results/ablation_v0.3.0.csv) · [统计与校正](results/summary_v0.3.0.json)
+
+```bash
+python tools/ablation_v03.py --seed-start 200 --seeds 12 --budget 1000 --population 20
+```
+
+下一步应优先补充完全未参与设计的 TSPLIB 数据集、更多随机种子、真实运行时间及强基线（包括 ACA75-polish），冻结方案后再进行独立确认，而不是反复调参直到某个实例显示显著。
 
 ### v0.2.0 的核心发现
 

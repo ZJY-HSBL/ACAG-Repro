@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1100" height="665" viewBox="0 0 1100 665" role="img" aria-label="eil51 | Paired performance vs ACA+2opt">
+<rect width="1100" height="665" fill="#f8fafc" rx="16"/>
+<text x="48.0" y="50.0" text-anchor="start" font-family="Arial, sans-serif" font-size="25" font-weight="bold" fill="#0f172a">eil51 | Paired performance vs ACA+2opt</text>
+<text x="48.0" y="79.0" text-anchor="start" font-family="Arial, sans-serif" font-size="13" font-weight="normal" fill="#64748b">12 new seeds · 1000 evaluations per run</text>
+<line x1="344.21" x2="344.21" y1="116" y2="575" stroke="#0f172a" stroke-width="2" stroke-dasharray="6,5"/>
+<text x="28.0" y="136.0" text-anchor="start" font-family="Arial, sans-serif" font-size="14" font-weight="normal" fill="#334155">ACA</text><path d="M322.06 131 H332.53" stroke="#64748b" stroke-width="5"/>
+<circle cx="327.44" cy="131" r="7" fill="#64748b"/>
+<text x="944.0" y="136.0" text-anchor="start" font-family="Arial, sans-serif" font-size="13" font-weight="bold" fill="#334155">-23.1</text><text x="28.0" y="178.0" text-anchor="start" font-family="Arial, sans-serif" font-size="14" font-weight="normal" fill="#334155">ACA75-polish</text><path d="M319.58 173 H331.56" stroke="#ca8a04" stroke-width="5"/>
+<circle cx="325.69" cy="173" r="7" fill="#ca8a04"/>
+<text x="944.0" y="178.0" text-anchor="start" font-family="Arial, sans-serif" font-size="13" font-weight="bold" fill="#334155">-25.5</text><text x="28.0" y="220.0" text-anchor="start" font-family="Arial, sans-serif" font-size="14" font-weight="normal" fill="#334155">GA-adj</text><path d="M828.12 215 H870.42" stroke="#94a3b8" stroke-width="5"/>
+<circle cx="849.30" cy="215" r="7" fill="#94a3b8"/>
+<text x="944.0" y="220.0" text-anchor="start" font-family="Arial, sans-serif" font-size="13" font-weight="bold" fill="#334155">+695.4</text><text x="28.0" y="262.0" text-anchor="start" font-family="Arial, sans-serif" font-size="14" font-weight="normal" fill="#334155">GA-2opt</text><path d="M746.71 257 H789.26" stroke="#a855f7" stroke-width="5"/>
+<circle cx="769.04" cy="257" r="7" fill="#a855f7"/>
+<text x="944.0" y="262.0" text-anchor="start" font-family="Arial, sans-serif" font-size="13" font-weight="bold" fill="#334155">+584.9</text><text x="28.0" y="304.0" text-anchor="start" font-family="Arial, sans-serif" font-size="14" font-weight="normal" fill="#334155">ACAG50-adj</text><path d="M324.90 299 H335.13" stroke="#dc2626" stroke-width="5"/>
+<circle cx="330.17" cy="299" r="7" fill="#dc2626"/>
+<text x="944.0" y="304.0" text-anchor="start" font-family="Arial, sans-serif" font-size="13" font-weight="bold" fill="#334155">-19.3</text><text x="28.0" y="346.0" text-anchor="start" font-family="Arial, sans-serif" font-size="14" font-weight="normal" fill="#334155">ACAG50-2opt</text><path d="M323.57 341 H335.25" stroke="#2563eb" stroke-width="5"/>
+<circle cx="329.62" cy="341" r="7" fill="#2563eb"/>
+<text x="944.0" y="346.0" text-anchor="start" font-family="Arial, sans-serif" font-size="13" font-weight="bold" fill="#334155">-20.1</text><text x="28.0" y="388.0" text-anchor="start" font-family="Arial, sans-serif" font-size="14" font-weight="normal" fill="#334155">ACAG75-2opt</text><path d="M321.51 383 H331.92" stroke="#059669" stroke-width="5"/>
+<circle cx="326.84" cy="383" r="7" fill="#059669"/>
+<text x="944.0" y="388.0" text-anchor="start" font-family="Arial, sans-serif" font-size="13" font-weight="bold" fill="#334155">-23.9</text><text x="28.0" y="430.0" text-anchor="start" font-family="Arial, sans-serif" font-size="14" font-weight="normal" fill="#334155">ACAG-stall-2opt</text><path d="M327.44 425 H341.12" stroke="#7c3aed" stroke-width="5"/>
+<circle cx="334.28" cy="425" r="7" fill="#7c3aed"/>
+<text x="944.0" y="430.0" text-anchor="start" font-family="Arial, sans-serif" font-size="13" font-weight="bold" fill="#334155">-13.7</text><text x="28.0" y="472.0" text-anchor="start" font-family="Arial, sans-serif" font-size="14" font-weight="normal" fill="#334155">ACAG50-elite2opt</text><path d="M323.15 467 H334.47" stroke="#0891b2" stroke-width="5"/>
+<circle cx="328.84" cy="467" r="7" fill="#0891b2"/>
+<text x="944.0" y="472.0" text-anchor="start" font-family="Arial, sans-serif" font-size="13" font-weight="bold" fill="#334155">-21.2</text><text x="28.0" y="514.0" text-anchor="start" font-family="Arial, sans-serif" font-size="14" font-weight="normal" fill="#334155">ACAG75-elite2opt</text><path d="M322.06 509 H332.41" stroke="#16a34a" stroke-width="5"/>
+<circle cx="327.44" cy="509" r="7" fill="#16a34a"/>
+<text x="944.0" y="514.0" text-anchor="start" font-family="Arial, sans-serif" font-size="13" font-weight="bold" fill="#334155">-23.1</text><text x="50.0" y="605.0" text-anchor="start" font-family="Arial, sans-serif" font-size="13" font-weight="normal" fill="#334155">Difference = treatment − ACA+2opt (negative is better). Paired percentile bootstrap CI.</text><text x="50.0" y="629.0" text-anchor="start" font-family="Arial, sans-serif" font-size="12" font-weight="normal" fill="#64748b">Exploratory comparisons; unadjusted 95% intervals, Holm-adjusted tests in JSON.</text>
+</svg>
