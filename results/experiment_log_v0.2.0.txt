@@ -1,0 +1,28 @@
+eil51
+  ACA                 mean=451.37  gap=5.95%
+  GA                  mean=1169.93  gap=174.63%
+  ACAG-stagnation     mean=460.30  gap=8.05%
+  ACAG-25%            mean=460.93  gap=8.20%
+  ACAG-50%            mean=457.83  gap=7.47%
+  ACAG-75%            mean=455.03  gap=6.82%
+  ACAG-50%-random     mean=460.43  gap=8.08%
+  Δ GA                  +718.57  CI[+699.2,+736.6] Holm p=0.0015
+  Δ ACAG-stagnation     +8.93  CI[+5.2,+12.9] Holm p=0.0015
+  Δ ACAG-25%            +9.57  CI[+5.8,+13.4] Holm p=0.0015
+  Δ ACAG-50%            +6.47  CI[+3.5,+9.7] Holm p=0.0015
+  Δ ACAG-75%            +3.67  CI[+1.1,+6.6] Holm p=0.0255
+  Δ ACAG-50%-random     +9.07  CI[+6.2,+12.2] Holm p=0.0015
+berlin52
+  ACA                 mean=7857.17  gap=4.18%
+  GA                  mean=21117.67  gap=180.00%
+  ACAG-stagnation     mean=8045.60  gap=6.68%
+  ACAG-25%            mean=8092.10  gap=7.29%
+  ACAG-50%            mean=7919.60  gap=5.01%
+  ACAG-75%            mean=7892.90  gap=4.65%
+  ACAG-50%-random     mean=7969.07  gap=5.66%
+  Δ GA                  +13260.50  CI[+12822.3,+13675.5] Holm p=0.0015
+  Δ ACAG-stagnation     +188.43  CI[+123.9,+257.8] Holm p=0.0015
+  Δ ACAG-25%            +234.93  CI[+183.4,+287.7] Holm p=0.0015
+  Δ ACAG-50%            +62.43  CI[+14.9,+113.6] Holm p=0.0370
+  Δ ACAG-75%            +35.73  CI[+5.3,+71.9] Holm p=0.0416
+  Δ ACAG-50%-random     +111.90  CI[+70.5,+157.7] Holm p=0.0015

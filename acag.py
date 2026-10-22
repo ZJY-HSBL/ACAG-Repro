@@ -80,11 +80,13 @@ class Result:
     evaluations: int
     history: list[tuple[int, int]]
     switch_evaluation: int | None = None
+    local_search_evaluations: int = 0
 
     def as_dict(self) -> dict:
         return dict(algorithm=self.algorithm, seed=self.seed, length=self.length,
                     tour=[x + 1 for x in self.tour], evaluations=self.evaluations,
-                    history=self.history, switch_evaluation=self.switch_evaluation)
+                    history=self.history, switch_evaluation=self.switch_evaluation,
+                    local_search_evaluations=self.local_search_evaluations)
 
 
 def canonical(tour: tuple[int, ...]) -> tuple[int, ...]:
@@ -151,7 +153,8 @@ class Solver:
                  q0: float = .8, beta: float = 3., rho: float = .15,
                  q: float = 1000., q1: float = 1., q2: float = 5.,
                  pc: float = .8, pm: float = .3, ant_max: int = 8,
-                 min_ratio: float = .01):
+                 min_ratio: float = .01, switch_policy: str = "stagnation",
+                 transfer_policy: str = "elite"):
         if budget < population or population < 2 or tsp.n < 3:
             raise ValueError("Need budget >= population >= 2 and >=3 cities")
         if not (0 <= q0 <= 1 and 0 < rho < 1 and 0 <= pc <= 1
@@ -167,7 +170,13 @@ class Solver:
         self.q0, self.beta, self.rho = q0, beta, rho
         self.q, self.q1, self.q2 = q, q1, q2
         self.pc, self.pm = pc, pm
+        if switch_policy not in ("stagnation", "fixed25", "fixed50", "fixed75", "never"):
+            raise ValueError("Unsupported switch policy")
+        if transfer_policy not in ("elite", "random"):
+            raise ValueError("Unsupported transfer policy")
         self.ant_max, self.min_ratio = ant_max, min_ratio
+        self.switch_policy, self.transfer_policy = switch_policy, transfer_policy
+        self.local_search_evaluations = 0
         self.best = math.inf
         self.tour: tuple[int, ...] = ()
         self.evals = 0
@@ -241,25 +250,41 @@ class Solver:
             return True
         return self.best < old_best * (1 - self.min_ratio)
 
-    def _population_from_archive(self) -> list[tuple[int, ...]]:
-        ranked = sorted(self.archive, key=lambda p: self.archive[p])
-        result = list(ranked[:self.population])
-        while len(result) < self.population:
-            result.append(tuple(self.rng.sample(range(self.tsp.n), self.tsp.n)))
-        return result
+    def _population_from_archive(self) -> tuple[list[tuple[int, ...]], list[int]]:
+        """Archive solutions were already charged during ACA; never evaluate free tours."""
+        ranked = sorted(self.archive, key=lambda p: (self.archive[p], p))
+        if not ranked:
+            raise RuntimeError("Cannot transfer from an empty ACA archive")
+        members = ranked[:self.population]
+        # Duplicates of already evaluated tours are allowed only if there are
+        # fewer distinct archived tours than members. No unevaluated filler.
+        while len(members) < self.population:
+            members.append(ranked[len(members) % len(ranked)])
+        return members, [self.archive[p] for p in members]
 
-    def _ga_generation(self, members: list[tuple[int, ...]],
-                       fitness: list[int], count: int) -> list[tuple[int, ...]]:
-        probabilities = [1/max(f, 1) for f in fitness]
-        children: list[tuple[int, ...]] = []
-        while len(children) < count:
-            p1 = members[roulette(probabilities, self.rng)]
-            p2 = members[roulette(probabilities, self.rng)]
-            c = ox(p1, p2, self.rng) if self.rng.random() < self.pc else p1
-            if self.rng.random() < self.pm:
-                c = adjacent_segment_improve(self.tsp, c, self.rng)
-            children.append(c)
-        return children
+    def _ga_step(self, members: list[tuple[int, ...]],
+                 scores: list[int]) -> tuple[tuple[int, ...], int]:
+        """Charge every evaluated complete tour, including local-search trials."""
+        weights = [1 / max(f, 1) for f in scores]
+        p1 = members[roulette(weights, self.rng)]
+        p2 = members[roulette(weights, self.rng)]
+        child = ox(p1, p2, self.rng) if self.rng.random() < self.pc else p1
+        score = self.evaluate(child)
+        if self.rng.random() >= self.pm or self.evals >= self.budget:
+            return child, score
+        a, b = sorted(self.rng.sample(range(self.tsp.n), 2))
+        trial = list(child)
+        for i in range(a, b):
+            if self.evals >= self.budget:
+                break
+            trial[i], trial[i + 1] = trial[i + 1], trial[i]
+            candidate_score = self.evaluate(tuple(trial))
+            self.local_search_evaluations += 1
+            if candidate_score < score:
+                score = candidate_score
+            else:
+                trial[i], trial[i + 1] = trial[i + 1], trial[i]
+        return tuple(trial), score
 
     def run(self, algorithm: str = "acag") -> Result:
         if algorithm not in ("aca", "ga", "acag"):
@@ -271,45 +296,54 @@ class Solver:
             scores = [self.evaluate(p) for p in population]
         else:
             stalled = 0
+            thresholds = {"fixed25": .25, "fixed50": .50, "fixed75": .75}
             while self.evals < self.budget:
                 count = min(self.population, self.budget - self.evals)
                 improved = self._ants_generation(count)
                 stalled = 0 if improved else stalled + 1
-                if algorithm == "acag" and stalled >= self.ant_max \
-                        and self.evals < self.budget:
+                policy = self.switch_policy
+                trigger = (stalled >= self.ant_max if policy == "stagnation"
+                           else self.evals >= math.ceil(self.budget * thresholds[policy])
+                           if policy in thresholds else False)
+                if algorithm == "acag" and trigger and self.evals < self.budget:
                     switch = self.evals
                     break
             if algorithm == "aca" or switch is None:
                 return self._result(algorithm, switch)
-            population = self._population_from_archive()
-            # No double counting archive members' previously evaluated tours.
-            scores = [self.tsp.length(p) for p in population]
+            if self.transfer_policy == "elite":
+                population, scores = self._population_from_archive()
+            else:
+                population = [tuple(self.rng.sample(range(self.tsp.n), self.tsp.n))
+                              for _ in range(min(self.population, self.budget-self.evals))]
+                scores = [self.evaluate(p) for p in population]
         while self.evals < self.budget:
-            count = min(self.population, self.budget - self.evals)
-            offspring = self._ga_generation(population, scores, count)
-            child_scores = [self.evaluate(p) for p in offspring]
-            # Elitist survivor selection to prevent known incumbent loss.
-            combined = list(zip(population + offspring, scores + child_scores))
+            child, score = self._ga_step(population, scores)
+            # Elitist survivor selection; stable ties plus canonical uniqueness.
+            combined = list(zip(population + [child], scores + [score]))
             combined.sort(key=lambda x: x[1])
-            unique: set[tuple[int, ...]] = set()
             survivors: list[tuple[tuple[int, ...], int]] = []
-            for candidate, score in combined:
+            unique: set[tuple[int, ...]] = set()
+            for candidate, candidate_score in combined:
                 key = canonical(candidate)
                 if key not in unique:
-                    survivors.append((candidate, score))
+                    survivors.append((candidate, candidate_score))
                     unique.add(key)
-                if len(survivors) == len(population):
+                if len(survivors) >= self.population:
                     break
-            # Keep population size constant even if offspring are duplicated.
-            while len(survivors) < len(population):
-                survivors.append(combined[len(survivors)])
-            population, scores = ([p for p, _ in survivors],
-                                  [s for _, s in survivors])
+            # For <population distinct tours preserve duplicates already scored.
+            if len(survivors) < self.population:
+                for entry in combined:
+                    if len(survivors) >= self.population:
+                        break
+                    survivors.append(entry)
+            population = [p for p, _ in survivors]
+            scores = [f for _, f in survivors]
         return self._result(algorithm, switch)
 
     def _result(self, name: str, switch: int | None) -> Result:
         return Result(name, self.seed, int(self.best), self.tour,
-                      self.evals, self.history, switch)
+                      self.evals, self.history, switch,
+                      self.local_search_evaluations)
 
 
 def main() -> None:
@@ -320,11 +354,16 @@ def main() -> None:
     p.add_argument("--budget", type=int, default=600)
     p.add_argument("--population", type=int, default=20)
     p.add_argument("--ant-max", type=int, default=8)
+    p.add_argument("--switch-policy", choices=("stagnation", "fixed25",
+                   "fixed50", "fixed75", "never"), default="stagnation")
+    p.add_argument("--transfer-policy", choices=("elite", "random"), default="elite")
     p.add_argument("--out", type=Path, help="Optional JSON output file")
     args = p.parse_args()
     tsp = TSP.from_tsplib(args.instance)
     result = Solver(tsp, seed=args.seed, budget=args.budget,
-                    population=args.population, ant_max=args.ant_max).run(args.algorithm)
+                    population=args.population, ant_max=args.ant_max,
+                    switch_policy=args.switch_policy,
+                    transfer_policy=args.transfer_policy).run(args.algorithm)
     data = json.dumps(dict(instance=tsp.name, **result.as_dict()), indent=2)
     if args.out:
         args.out.parent.mkdir(parents=True, exist_ok=True)
