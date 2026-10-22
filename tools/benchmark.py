@@ -126,7 +126,7 @@ def main() -> None:
             route_svg(tsp, best[1], best[0]), encoding="utf-8")
         print(tsp.name, json.dumps(aggregate[tsp.name]))
     with (args.out / "benchmark_v0.1.0.csv").open("w", newline="", encoding="utf-8") as f:
-        writer = csv.DictWriter(f, fieldnames=list(rows[0]))
+        writer = csv.DictWriter(f, fieldnames=list(rows[0]), lineterminator="\n")
         writer.writeheader()
         writer.writerows(rows)
     (args.out / "summary_v0.1.0.json").write_text(
