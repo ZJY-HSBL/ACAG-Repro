@@ -198,9 +198,9 @@ def run(seed_start:int=200,seeds:int=12,budget:int=1000,population:int=20,
             for label, v in data[key].items():
                 v['holm_p_all_comparisons']=adjusted[f'{name}/{baseline}/{label}']
     with (results_dir/'ablation_v0.3.0.csv').open('w',newline='',encoding='utf8') as f:
-        writer=csv.DictWriter(f,fieldnames=list(rows[0]));writer.writeheader();writer.writerows(rows)
+        writer=csv.DictWriter(f,fieldnames=list(rows[0]),lineterminator="\n");writer.writeheader();writer.writerows(rows)
     with (results_dir/'convergence_v0.3.0.csv').open('w',newline='',encoding='utf8') as f:
-        writer=csv.DictWriter(f,fieldnames=list(curves_rows[0]));writer.writeheader();writer.writerows(curves_rows)
+        writer=csv.DictWriter(f,fieldnames=list(curves_rows[0]),lineterminator="\n");writer.writeheader();writer.writerows(curves_rows)
     (results_dir/'summary_v0.3.0.json').write_text(json.dumps(report,indent=2,ensure_ascii=False)+'\n',encoding='utf8')
     return report
 
